@@ -4,21 +4,19 @@ import { supabase } from "@/integrations/supabase/client";
 import Navigation from "@/components/Navigation";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { MapPin, Star } from "lucide-react";
+import { MapPin } from "lucide-react";
 import { useToast } from "@/components/ui/use-toast";
+// Import the extended Monument interface and context hook
+import { useLanguage, Monument } from "@/contexts/LanguageContext";
 
-interface Monument {
-  id: string;
-  name: string;
-  description: string;
-  location: string;
-  category: string;
-  image_url: string | null;
-}
+// NOTE: The Monument interface is now sourced from LanguageContext.tsx
 
 const Dashboard = () => {
   const navigate = useNavigate();
   const { toast } = useToast();
+  // Use the useLanguage hook to access the dynamic text function
+  const { getMonumentText } = useLanguage(); 
+
   const [monuments, setMonuments] = useState<Monument[]>([]);
   const [loading, setLoading] = useState(true);
 
@@ -45,13 +43,18 @@ const Dashboard = () => {
 
   const fetchMonuments = async () => {
     try {
+      // ⚠️ ENHANCEMENT: Fetch all multilingual columns
       const { data, error } = await supabase
         .from("monuments")
-        .select("*")
+        .select(`
+            id, name, description, location, category, image_url, 
+            description_english, description_hindi, description_telugu,
+            historical_info_english, historical_info_hindi, historical_info_telugu
+        `)
         .order("created_at", { ascending: false });
 
       if (error) throw error;
-      setMonuments(data || []);
+      setMonuments(data as Monument[] || []);
     } catch (error: any) {
       toast({
         title: "Error loading monuments",
@@ -93,7 +96,7 @@ const Dashboard = () => {
           <Card className="text-center py-12">
             <CardContent>
               <p className="text-muted-foreground">
-                No monuments found. Upload an image to get started!
+                No monuments found. The admin needs to add some!
               </p>
             </CardContent>
           </Card>
@@ -138,7 +141,8 @@ const Dashboard = () => {
                 
                 <CardContent>
                   <p className="text-sm text-muted-foreground line-clamp-2">
-                    {monument.description}
+                    {/* ⚠️ ENHANCEMENT: Use the language context for description */}
+                    {getMonumentText(monument, 'description')}
                   </p>
                 </CardContent>
               </Card>
