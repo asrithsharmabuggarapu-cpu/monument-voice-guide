@@ -115,22 +115,18 @@ const MonumentDetails = () => {
       if (error) throw error;
       if (!data) throw new Error("Audio generation failed on the server.");
       
-      // 2. The Edge function should return a raw audio buffer (e.g., MP3 or WAV)
-      // We assume the response data is an ArrayBuffer (or base64 encoded string if transport is tricky)
+      // Get the current session for authorization
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session) {
+        throw new Error("Not authenticated");
+      }
       
-      // Since Supabase returns data wrapped in an object for JSON, 
-      // but we expect a binary response, we need to adjust the fetch if the invoke wrapper fails:
-      
-      // If the Edge function returns raw audio buffer, the `invoke` data object might contain the buffer.
-      // For simplicity, let's assume `data` contains the raw ArrayBuffer.
-      // NOTE: If Supabase invoke wraps the binary response in an object, you might need a custom fetch.
-      
-      // ***Using a robust fetch call for binary data***
-      const url = `${supabase.functions.url('text-to-speech')}`;
-      const audioResponse = await fetch(url, {
+      // Use the Supabase functions URL
+      const functionsUrl = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/text-to-speech`;
+      const audioResponse = await fetch(functionsUrl, {
           method: 'POST',
           headers: {
-              'Authorization': `Bearer ${supabase.auth.session()?.access_token}`,
+              'Authorization': `Bearer ${session.access_token}`,
               'Content-Type': 'application/json',
           },
           body: JSON.stringify({ text: textContent, language: language }),

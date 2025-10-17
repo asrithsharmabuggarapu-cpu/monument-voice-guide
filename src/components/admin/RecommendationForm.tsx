@@ -140,8 +140,8 @@ export const RecommendationForm = ({ recommendation, monumentId, onClose }: Reco
           min="0"
           max="5"
           step="0.1"
-          value={formData.rating}
-          onChange={(e) => setFormData({ ...formData, rating: parseFloat(e.target.value) })}
+          value={formData.rating || ''}
+          onChange={(e) => setFormData({ ...formData, rating: e.target.value ? parseFloat(e.target.value) : 0 })}
         />
       </div>
 

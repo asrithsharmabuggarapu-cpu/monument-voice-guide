@@ -7,7 +7,6 @@ import Index from "./pages/Index";
 import Register from "./pages/Register";
 import Login from "./pages/Login";
 import Dashboard from "./pages/Dashboard";
-import Upload from "./pages/Upload";
 import MonumentDetails from "./pages/MonumentDetails";
 import Feedback from "./pages/Feedback";
 import Admin from "./pages/Admin";
@@ -28,7 +27,6 @@ const App = () => (
             <Route path="/register" element={<Register />} />
             <Route path="/login" element={<Login />} />
             <Route path="/dashboard" element={<Dashboard />} />
-            <Route path="/upload" element={<Upload />} />
             <Route path="/monument/:id" element={<MonumentDetails />} />
             <Route path="/feedback" element={<Feedback />} />
             <Route path="/admin" element={<Admin />} />

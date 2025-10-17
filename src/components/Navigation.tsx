@@ -23,14 +23,11 @@ const Navigation = () => {
         return;
     }
 
-    // ⚠️ CORRECTED ADMIN CHECK: Using the 'profiles' table with the 'rolee' column
-    const { data: profile } = await supabase
-      .from('profiles')
-      .select('role')
-      .eq('id', user.id) // User ID is the PK for the profiles table
-      .maybeSingle();
+    // Check admin role using user_roles table
+    const { data: roleData } = await supabase
+      .rpc('has_role', { _role: 'admin', _user_id: user.id });
 
-    setIsAdmin(profile?.role === 'admin');
+    setIsAdmin(roleData === true);
   };
 
   const handleLogout = async () => {
