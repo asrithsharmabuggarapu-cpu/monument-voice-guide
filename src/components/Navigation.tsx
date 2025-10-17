@@ -2,7 +2,7 @@ import { Link, useNavigate, useLocation } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/components/ui/use-toast";
-import { Landmark, LogOut, Upload, Home, MessageSquare, Shield } from "lucide-react";
+import { Landmark, LogOut, Home, MessageSquare, Shield } from "lucide-react";
 import { LanguageSelector } from "./LanguageSelector";
 import { useEffect, useState } from "react";
 
@@ -73,17 +73,6 @@ const Navigation = () => {
               <Home className="w-4 h-4" />
               <span className="hidden sm:inline">Dashboard</span>
             </Button>
-            
-            <Button
-              variant={isActive("/upload") ? "default" : "ghost"}
-              size="sm"
-              onClick={() => navigate("/upload")}
-              className="gap-2"
-            >
-              <Upload className="w-4 h-4" />
-              <span className="hidden sm:inline">Upload</span>
-            </Button>
-
             <Button
               variant={isActive("/feedback") ? "default" : "ghost"}
               size="sm"
