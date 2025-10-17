@@ -2,12 +2,33 @@ import { Link, useNavigate, useLocation } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/components/ui/use-toast";
-import { Landmark, LogOut, Upload, Home, MessageSquare } from "lucide-react";
+import { Landmark, LogOut, Upload, Home, MessageSquare, Shield } from "lucide-react";
+import { LanguageSelector } from "./LanguageSelector";
+import { useEffect, useState } from "react";
 
 const Navigation = () => {
   const navigate = useNavigate();
   const location = useLocation();
   const { toast } = useToast();
+  const [isAdmin, setIsAdmin] = useState(false);
+
+  useEffect(() => {
+    checkAdminStatus();
+  }, []);
+
+  const checkAdminStatus = async () => {
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) return;
+
+    const { data: roles } = await supabase
+      .from('user_roles')
+      .select('role')
+      .eq('user_id', user.id)
+      .eq('role', 'admin')
+      .maybeSingle();
+
+    setIsAdmin(!!roles);
+  };
 
   const handleLogout = async () => {
     const { error } = await supabase.auth.signOut();
@@ -41,6 +62,8 @@ const Navigation = () => {
           </Link>
 
           <div className="flex items-center gap-2">
+            <LanguageSelector />
+            
             <Button
               variant={isActive("/dashboard") ? "default" : "ghost"}
               size="sm"
@@ -70,6 +93,18 @@ const Navigation = () => {
               <MessageSquare className="w-4 h-4" />
               <span className="hidden sm:inline">Feedback</span>
             </Button>
+
+            {isAdmin && (
+              <Button
+                variant={isActive("/admin") ? "default" : "ghost"}
+                size="sm"
+                onClick={() => navigate("/admin")}
+                className="gap-2"
+              >
+                <Shield className="w-4 h-4" />
+                <span className="hidden sm:inline">Admin</span>
+              </Button>
+            )}
 
             <Button
               variant="ghost"

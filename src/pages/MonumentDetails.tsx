@@ -6,8 +6,9 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { MapPin, Hotel, Navigation as NavigationIcon, Volume2, Star, Loader2 } from "lucide-react";
+import { MapPin, Hotel, Navigation as NavigationIcon, Volume2, Star, Loader2, Box } from "lucide-react";
 import { useToast } from "@/components/ui/use-toast";
+import { useLanguage } from "@/contexts/LanguageContext";
 
 interface Monument {
   id: string;
@@ -17,6 +18,13 @@ interface Monument {
   location: string;
   category: string | null;
   image_url: string | null;
+  model_url: string | null;
+  description_english: string | null;
+  description_hindi: string | null;
+  description_telugu: string | null;
+  historical_info_english: string | null;
+  historical_info_hindi: string | null;
+  historical_info_telugu: string | null;
 }
 
 interface Recommendation {
@@ -33,11 +41,23 @@ const MonumentDetails = () => {
   const { id } = useParams();
   const navigate = useNavigate();
   const { toast } = useToast();
+  const { language } = useLanguage();
   const [monument, setMonument] = useState<Monument | null>(null);
   const [recommendations, setRecommendations] = useState<Recommendation[]>([]);
   const [loading, setLoading] = useState(true);
   const [audioLoading, setAudioLoading] = useState<string | null>(null);
   const [audioText, setAudioText] = useState<{ [key: string]: string }>({});
+
+  // Get the appropriate text based on selected language
+  const getLocalizedText = (
+    englishText: string | null,
+    hindiText: string | null,
+    teluguText: string | null
+  ) => {
+    if (language === 'hindi' && hindiText) return hindiText;
+    if (language === 'telugu' && teluguText) return teluguText;
+    return englishText || '';
+  };
 
   useEffect(() => {
     const checkAuth = async () => {
@@ -125,6 +145,19 @@ const MonumentDetails = () => {
   const nearbyPlaces = recommendations.filter((r) => r.type === "nearby_place");
   const hotels = recommendations.filter((r) => r.type === "hotel");
 
+  // Get localized content
+  const description = getLocalizedText(
+    monument.description_english || monument.description,
+    monument.description_hindi,
+    monument.description_telugu
+  );
+
+  const historicalInfo = getLocalizedText(
+    monument.historical_info_english || monument.historical_info,
+    monument.historical_info_hindi,
+    monument.historical_info_telugu
+  );
+
   return (
     <div className="min-h-screen bg-gradient-to-br from-primary/5 via-background to-secondary/5">
       <Navigation />
@@ -157,15 +190,33 @@ const MonumentDetails = () => {
               </CardHeader>
 
               <CardContent className="space-y-6">
+                {monument.model_url && (
+                  <div>
+                    <h3 className="text-lg font-semibold mb-3 flex items-center gap-2">
+                      <Box className="w-5 h-5" />
+                      3D Model
+                    </h3>
+                    <div className="rounded-lg overflow-hidden border shadow-sm">
+                      <iframe
+                        src={monument.model_url}
+                        className="w-full h-[400px]"
+                        frameBorder="0"
+                        allow="autoplay; fullscreen; xr-spatial-tracking"
+                        allowFullScreen
+                      />
+                    </div>
+                  </div>
+                )}
+
                 <div>
                   <h3 className="text-lg font-semibold mb-2">Description</h3>
-                  <p className="text-muted-foreground">{monument.description}</p>
+                  <p className="text-muted-foreground">{description}</p>
                 </div>
 
-                {monument.historical_info && (
+                {historicalInfo && (
                   <div>
                     <h3 className="text-lg font-semibold mb-2">Historical Information</h3>
-                    <p className="text-muted-foreground">{monument.historical_info}</p>
+                    <p className="text-muted-foreground">{historicalInfo}</p>
                   </div>
                 )}
 
