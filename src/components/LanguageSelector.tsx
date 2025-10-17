@@ -1,31 +1,27 @@
-import { useLanguage, Language } from "@/contexts/LanguageContext";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Globe } from "lucide-react";
+import { useLanguage, Language } from "@/contexts/LanguageContext";
 
-const languageLabels: Record<Language, string> = {
-  english: 'English',
-  hindi: 'हिंदी',
-  telugu: 'తెలుగు'
-};
+const languageOptions: { value: Language, label: string }[] = [
+    { value: 'english', label: 'English' },
+    { value: 'hindi', label: 'हिंदी' },
+    { value: 'telugu', label: 'తెలుగు' },
+];
 
 export const LanguageSelector = () => {
-  const { language, setLanguage } = useLanguage();
+    const { language, setLanguage } = useLanguage();
 
-  return (
-    <div className="flex items-center gap-2">
-      <Globe className="h-4 w-4 text-muted-foreground" />
-      <Select value={language} onValueChange={(value) => setLanguage(value as Language)}>
-        <SelectTrigger className="w-[140px]">
-          <SelectValue />
-        </SelectTrigger>
-        <SelectContent>
-          {Object.entries(languageLabels).map(([key, label]) => (
-            <SelectItem key={key} value={key}>
-              {label}
-            </SelectItem>
-          ))}
-        </SelectContent>
-      </Select>
-    </div>
-  );
+    return (
+        <Select value={language} onValueChange={(value) => setLanguage(value as Language)}>
+            <SelectTrigger className="w-[120px]">
+                <SelectValue placeholder="Language" />
+            </SelectTrigger>
+            <SelectContent>
+                {languageOptions.map(option => (
+                    <SelectItem key={option.value} value={option.value}>
+                        {option.label}
+                    </SelectItem>
+                ))}
+            </SelectContent>
+        </Select>
+    );
 };
