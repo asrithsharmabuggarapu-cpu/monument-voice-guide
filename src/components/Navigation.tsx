@@ -18,16 +18,19 @@ const Navigation = () => {
 
   const checkAdminStatus = async () => {
     const { data: { user } } = await supabase.auth.getUser();
-    if (!user) return;
+    if (!user) {
+        setIsAdmin(false);
+        return;
+    }
 
-    const { data: roles } = await supabase
-      .from('user_roles')
+    // ⚠️ CORRECTED ADMIN CHECK: Using the 'profiles' table with the 'role' column
+    const { data: profile } = await supabase
+      .from('profiles')
       .select('role')
-      .eq('user_id', user.id)
-      .eq('role', 'admin')
+      .eq('id', user.id) // User ID is the PK for the profiles table
       .maybeSingle();
 
-    setIsAdmin(!!roles);
+    setIsAdmin(profile?.role === 'admin');
   };
 
   const handleLogout = async () => {
