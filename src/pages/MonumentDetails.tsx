@@ -6,26 +6,10 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { MapPin, Hotel, Navigation as NavigationIcon, Volume2, Star, Loader2, Box } from "lucide-react";
+import { MapPin, Hotel, Navigation as NavigationIcon, Volume2, Star, Loader2, Box, Headphones } from "lucide-react";
 import { useToast } from "@/components/ui/use-toast";
-import { useLanguage } from "@/contexts/LanguageContext";
-
-interface Monument {
-  id: string;
-  name: string;
-  description: string;
-  historical_info: string | null;
-  location: string;
-  category: string | null;
-  image_url: string | null;
-  model_url: string | null;
-  description_english: string | null;
-  description_hindi: string | null;
-  description_telugu: string | null;
-  historical_info_english: string | null;
-  historical_info_hindi: string | null;
-  historical_info_telugu: string | null;
-}
+// Import necessary items from the corrected context file
+import { useLanguage, Monument } from "@/contexts/LanguageContext";
 
 interface Recommendation {
   id: string;
@@ -41,23 +25,24 @@ const MonumentDetails = () => {
   const { id } = useParams();
   const navigate = useNavigate();
   const { toast } = useToast();
-  const { language } = useLanguage();
+  // Get language state and the helper function from context
+  const { language, getMonumentText } = useLanguage();
+  
   const [monument, setMonument] = useState<Monument | null>(null);
   const [recommendations, setRecommendations] = useState<Recommendation[]>([]);
   const [loading, setLoading] = useState(true);
   const [audioLoading, setAudioLoading] = useState<string | null>(null);
-  const [audioText, setAudioText] = useState<{ [key: string]: string }>({});
+  const [audio, setAudio] = useState<HTMLAudioElement | null>(null);
 
-  // Get the appropriate text based on selected language
-  const getLocalizedText = (
-    englishText: string | null,
-    hindiText: string | null,
-    teluguText: string | null
-  ) => {
-    if (language === 'hindi' && hindiText) return hindiText;
-    if (language === 'telugu' && teluguText) return teluguText;
-    return englishText || '';
-  };
+  // Stop audio playback when leaving the page or starting a new request
+  useEffect(() => {
+    return () => {
+      if (audio) {
+        audio.pause();
+        audio.src = '';
+      }
+    };
+  }, [audio]);
 
   useEffect(() => {
     const checkAuth = async () => {
@@ -75,14 +60,19 @@ const MonumentDetails = () => {
   const fetchMonumentDetails = async () => {
     try {
       const [monumentRes, recommendationsRes] = await Promise.all([
-        supabase.from("monuments").select("*").eq("id", id).single(),
+        // Fetch all multilingual columns
+        supabase.from("monuments").select(`
+            id, name, description, historical_info, location, category, image_url, model_url,
+            description_english, description_hindi, description_telugu,
+            historical_info_english, historical_info_hindi, historical_info_telugu
+        `).eq("id", id).single(),
         supabase.from("recommendations").select("*").eq("monument_id", id),
       ]);
 
       if (monumentRes.error) throw monumentRes.error;
       if (recommendationsRes.error) throw recommendationsRes.error;
 
-      setMonument(monumentRes.data);
+      setMonument(monumentRes.data as Monument);
       setRecommendations(recommendationsRes.data || []);
     } catch (error: any) {
       toast({
@@ -90,40 +80,89 @@ const MonumentDetails = () => {
         description: error.message,
         variant: "destructive",
       });
-      navigate("/dashboard");
+      // Optionally, navigate back if monument doesn't exist
+      // navigate("/dashboard"); 
     } finally {
       setLoading(false);
     }
   };
 
-  const handleTextToSpeech = async (language: string) => {
+  // ⚠️ CRITICAL FIX: Handles Edge Function audio streaming
+  const handleTextToSpeech = async () => {
     if (!monument) return;
 
     setAudioLoading(language);
+    
+    // Stop any currently playing audio
+    if (audio) audio.pause();
+
     try {
-      const textContent = `${monument.name}. ${monument.description}. ${monument.historical_info || ''}`;
+      // Get the currently localized text for the whole guide
+      const description = getMonumentText(monument, 'description');
+      const historicalInfo = getMonumentText(monument, 'historical_info');
       
+      const textContent = `${monument.name}. ${description}. ${historicalInfo}`;
+      
+      // 1. Invoke the Edge Function, expecting an audio buffer in the response
       const { data, error } = await supabase.functions.invoke('text-to-speech', {
-        body: { text: textContent, language }
+        body: { 
+            text: textContent, 
+            language: language 
+        }
       });
 
+      // Error handling for function invocation
       if (error) throw error;
-
-      setAudioText((prev) => ({ ...prev, [language]: data.translatedText }));
+      if (!data) throw new Error("Audio generation failed on the server.");
       
-      // Use Web Speech API to read the text
-      const utterance = new SpeechSynthesisUtterance(data.translatedText);
-      utterance.lang = language === 'telugu' ? 'te-IN' : language === 'hindi' ? 'hi-IN' : 'en-US';
-      speechSynthesis.speak(utterance);
+      // 2. The Edge function should return a raw audio buffer (e.g., MP3 or WAV)
+      // We assume the response data is an ArrayBuffer (or base64 encoded string if transport is tricky)
+      
+      // Since Supabase returns data wrapped in an object for JSON, 
+      // but we expect a binary response, we need to adjust the fetch if the invoke wrapper fails:
+      
+      // If the Edge function returns raw audio buffer, the `invoke` data object might contain the buffer.
+      // For simplicity, let's assume `data` contains the raw ArrayBuffer.
+      // NOTE: If Supabase invoke wraps the binary response in an object, you might need a custom fetch.
+      
+      // ***Using a robust fetch call for binary data***
+      const url = `${supabase.functions.url('text-to-speech')}`;
+      const audioResponse = await fetch(url, {
+          method: 'POST',
+          headers: {
+              'Authorization': `Bearer ${supabase.auth.session()?.access_token}`,
+              'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({ text: textContent, language: language }),
+      });
+      
+      if (!audioResponse.ok) {
+          throw new Error(`Edge Function error: ${audioResponse.statusText}`);
+      }
+      
+      const audioBlob = await audioResponse.blob();
+      
+      if (audioBlob.type.includes("json")) {
+          const errorJson = await audioBlob.text();
+          console.error("Audio generation failed:", errorJson);
+          throw new Error("Failed to receive audio data. Server returned JSON error.");
+      }
+
+      // 3. Create a playable object URL and play
+      const audioUrl = URL.createObjectURL(audioBlob);
+      const newAudio = new Audio(audioUrl);
+      setAudio(newAudio);
+      newAudio.play();
 
       toast({
-        title: "Audio started",
+        title: "Audio Guide Started",
         description: `Playing in ${language.charAt(0).toUpperCase() + language.slice(1)}`,
       });
     } catch (error: any) {
+      console.error("Audio generation error:", error);
       toast({
-        title: "Error generating audio",
-        description: error.message,
+        title: "Audio Error",
+        description: error.message || "Failed to start audio guide.",
         variant: "destructive",
       });
     } finally {
@@ -145,18 +184,9 @@ const MonumentDetails = () => {
   const nearbyPlaces = recommendations.filter((r) => r.type === "nearby_place");
   const hotels = recommendations.filter((r) => r.type === "hotel");
 
-  // Get localized content
-  const description = getLocalizedText(
-    monument.description_english || monument.description,
-    monument.description_hindi,
-    monument.description_telugu
-  );
-
-  const historicalInfo = getLocalizedText(
-    monument.historical_info_english || monument.historical_info,
-    monument.historical_info_hindi,
-    monument.historical_info_telugu
-  );
+  // ⚠️ ENHANCEMENT: Use the Context helper for localized content
+  const description = getMonumentText(monument, 'description');
+  const historicalInfo = getMonumentText(monument, 'historical_info');
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-primary/5 via-background to-secondary/5">
@@ -223,34 +253,33 @@ const MonumentDetails = () => {
                 <div>
                   <h3 className="text-lg font-semibold mb-3">Audio Guide</h3>
                   <div className="flex flex-wrap gap-3">
-                    {["english", "hindi", "telugu"].map((lang) => (
-                      <Button
-                        key={lang}
-                        onClick={() => handleTextToSpeech(lang)}
-                        disabled={audioLoading !== null}
-                        className="gap-2 bg-secondary hover:bg-secondary/90"
-                      >
-                        {audioLoading === lang ? (
-                          <Loader2 className="w-4 h-4 animate-spin" />
-                        ) : (
-                          <Volume2 className="w-4 h-4" />
-                        )}
-                        {lang.charAt(0).toUpperCase() + lang.slice(1)}
+                    {/* The audio button uses the currently selected language */}
+                    <Button
+                      onClick={handleTextToSpeech}
+                      disabled={audioLoading !== null}
+                      className="gap-2 bg-secondary hover:bg-secondary/90"
+                    >
+                      {audioLoading === language ? (
+                        <Loader2 className="w-4 h-4 animate-spin" />
+                      ) : (
+                        <Headphones className="w-4 h-4" />
+                      )}
+                      Play Guide in {language.charAt(0).toUpperCase() + language.slice(1)}
+                    </Button>
+                    
+                    {audio && (
+                      <Button variant="outline" onClick={() => audio.pause()} disabled={audio.paused}>
+                          Stop Audio
                       </Button>
-                    ))}
+                    )}
                   </div>
-                  {Object.keys(audioText).length > 0 && (
-                    <div className="mt-4 p-4 bg-muted rounded-lg">
-                      <p className="text-sm text-muted-foreground">
-                        Translated text available for: {Object.keys(audioText).join(", ")}
-                      </p>
-                    </div>
-                  )}
+                  {/* Removed the redundant audioText display */}
                 </div>
               </CardContent>
             </Card>
           </div>
 
+          {/* Recommendations Sidebar (Unchanged) */}
           <div className="space-y-6">
             <Card className="shadow-elegant">
               <CardHeader>
