@@ -23,7 +23,7 @@ const Navigation = () => {
         return;
     }
 
-    // ⚠️ CORRECTED ADMIN CHECK: Using the 'profiles' table with the 'role' column
+    // ⚠️ CORRECTED ADMIN CHECK: Using the 'profiles' table with the 'rolee' column
     const { data: profile } = await supabase
       .from('profiles')
       .select('role')
